@@ -58,6 +58,17 @@ export const GLADE = {
     fireflies: { count: 22, x: [66, 97], y: [48, 90] },     // near the tree on the right
   },
 
+  // Your music. Put the files in the `sounds` folder with these names (or change the names here).
+  // The title is what Settings shows. Songs play one after another and loop back to the first.
+  music: [
+    { title: 'Song 1', file: 'sounds/song-1.mp3' },
+    { title: 'Song 2', file: 'sounds/song-2.mp3' },
+    { title: 'Song 3', file: 'sounds/song-3.mp3' },
+    { title: 'Song 4', file: 'sounds/song-4.mp3' },
+    { title: 'Song 5', file: 'sounds/song-5.mp3' },
+    { title: 'Song 6', file: 'sounds/song-6.mp3' },
+  ],
+
   // Which side the floating card sits on, so it doesn't cover the tree: 'left' or 'right'.
   cardSide: 'left',
 
