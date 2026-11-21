@@ -1,3 +1,4 @@
+
 // The Glade — main app
 import { firebaseConfig } from './firebase-config.js';
 import { GLADE } from './glade-config.js';
@@ -7,14 +8,14 @@ import { renderEffects } from './effects.js';
 import { paintingRect, toScreen } from './geometry.js';
 import { natureForDate, fetchPhoto } from './nature-data.js';
 import { toggleAmbient, isAmbientOn, chime } from './sound.js';
-
+ 
 let db = null;      // the active storage (real Firebase or guest)
 let realDb = null;  // Firebase, loaded when configured
 const $app = document.getElementById('app');
 const $glade = document.getElementById('glade');
 const $river = document.getElementById('river');
 const configured = !!(firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('PASTE'));
-
+ 
 const STATE_INFO = {
   focus: { label: 'Deep focus', hint: 'Ready to lock in' },
   creative: { label: 'Creative', hint: 'Want to make something' },
@@ -28,7 +29,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const STARTER_MINUTES = 5;
 const GLADE_VIEWS = ['stream', 'begin', 'pressed']; // views shown as a card floating over the open glade
-
+ 
 const S = {
   user: null, items: [], log: [], settings: {},
   view: 'loading', mood: null, drifted: new Set(), leafId: null,
@@ -36,7 +37,7 @@ const S = {
   journalDate: null, timer: null, timerInt: null, lastPressed: null, undo: null, guest: false,
   gladeSrc: null, riverKey: null, previewCount: null, previewSeason: null,
 };
-
+ 
 // ---------- helpers ----------
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function dateStr(d = new Date()) {
@@ -112,19 +113,19 @@ const I = {
   check: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 L10 17 L19 7"/></svg>',
   plus: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5 V19 M5 12 H19"/></svg>',
 };
-
-
+ 
+ 
 const I2 = {
   close: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>',
   back: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"/></svg>',
 };
-
+ 
 // ---------- data actions ----------
 function updateItem(id, patch) { const it = getItem(id); if (it) Object.assign(it, patch); db.updateItem(id, clean(patch)); }
 function addItem(data) { const it = db.addItem(clean(data)); S.items.push(it); return it; }
 function deleteItem(id) { S.items = S.items.filter(i => i.id !== id); db.deleteItem(id); }
 function saveSettings(patch) { Object.assign(S.settings, patch); db.saveSettings(patch); }
-
+ 
 // Press a leaf. `prev` holds the item's old values so the press can be undone.
 function press(item, state, { navigate = true, prev = null } = {}) {
   const kind = leafKindFor(item, state);
@@ -156,7 +157,7 @@ function untickClearing(it) {
   if (it.weekly) updateItem(it.id, { lastDoneWeek: null });
   else updateItem(it.id, { status: 'active', doneWeek: null });
 }
-
+ 
 // ---------- the stream ----------
 function pickLeaf(mood) {
   if (mood === 'social') return null;
@@ -177,7 +178,7 @@ function pickLeaf(mood) {
   for (let k = 0; k < pool.length; k++) { r -= weights[k]; if (r <= 0) return pool[k]; }
   return pool[pool.length - 1];
 }
-
+ 
 // ---------- timer (counts up, keeps running when you switch pages, tabs, or close the app) ----------
 const TIMER_KEY = 'glade-timer';
 const pad = n => String(n).padStart(2, '0');
@@ -224,7 +225,7 @@ function timerHtml(item) {
   return `<div class="timer-up"><span class="timer-label">You’ve been here for</span><span class="timer-big" data-timer-text>${fmtUp(elapsed())}</span>
     <span class="hint" id="timer-note">${elapsed() >= TIMER_LIMIT ? 'The timer stopped at 4 hours, in case it was forgotten.' : S.timer.chimed ? 'You’ve started. Keep going for as long as you like.' : 'A soft chime at 5 minutes, just to say you’ve started.'}</span></div>`;
 }
-
+ 
 // ---------- the glade (background) ----------
 const pressedCount = () => (S.previewCount ?? S.log.length);
 function currentStage() {
@@ -284,9 +285,9 @@ function updateGlade() {
   const open = GLADE_VIEWS.includes(S.view);
   $glade.classList.toggle('blurred', S.view === 'home' || S.view === 'login' || S.view === 'loading');
   $glade.classList.toggle('dim', !open && !(S.view === 'home' || S.view === 'login' || S.view === 'loading'));
-
+ 
   placeAnimals();
-
+ 
   // the leaf on the river
   const item = S.view === 'stream' && S.leafId ? getItem(S.leafId) : null;
   const key = item ? `${item.id}-${S.drifted.size}` : '';
@@ -296,7 +297,7 @@ function updateGlade() {
     $river.innerHTML = item ? `<div class="river-leaf"><div class="bob">${leafSvg(leafKindFor(item, S.mood), 58)}</div></div>` : '';
   }
 }
-
+ 
 // Map a point on the painting (in %) to the screen, the same way the image is cropped (object-fit: cover).
 function paintingToScreen(px, py, aspect, focusX) {
   const vw = window.innerWidth, vh = window.innerHeight;
@@ -357,7 +358,7 @@ function layoutPaintings() {
   $glade.classList.toggle('phone-framing', rc.phone);
 }
 window.addEventListener('resize', () => { layoutPaintings(); placeRiver(); placeAnimals(); placeStage(); });
-
+ 
 // ---------- views ----------
 function shell(content) {
   const nav = [['glade', 'Glade', I.glade], ['journal', 'Journal', I.journal], ['garden', 'Garden', I.garden], ['settings', 'Settings', I.settings]];
@@ -365,13 +366,15 @@ function shell(content) {
   return `<header class="top">
       <button class="brand glass" data-action="go" data-view="glade">The Glade</button>
       <nav class="nav glass">${nav.map(([v, l, ic]) => `<button class="${tab === v ? 'on' : ''}" data-action="go" data-view="${v}">${ic}<span>${l}</span></button>`).join('')}</nav>
-      ${S.timer && S.view !== 'begin' && getItem(S.timer.itemId) ? `<button class="timer-chip glass" data-action="open-timer" aria-label="Back to your timer"><span data-timer-text>${fmtUp(elapsed())}</span><span class="timer-chip-title">${esc(getItem(S.timer.itemId).title)}</span></button>` : ''}
-      <button class="icon-btn glass" id="sound-btn" data-action="sound" aria-label="Forest sounds" aria-pressed="${isAmbientOn()}">${isAmbientOn() ? I.soundOn : I.soundOff}</button>
+      <div class="top-right">
+        ${S.timer && S.view !== 'begin' && getItem(S.timer.itemId) ? `<button class="timer-chip glass" data-action="open-timer" aria-label="Back to your timer"><span data-timer-text>${fmtUp(elapsed())}</span><span class="timer-chip-title">${esc(getItem(S.timer.itemId).title)}</span></button>` : ''}
+        <button class="icon-btn glass" id="sound-btn" data-action="sound" aria-label="Forest sounds" aria-pressed="${isAmbientOn()}">${isAmbientOn() ? I.soundOn : I.soundOff}</button>
+      </div>
     </header>
     ${S.guest ? '<div class="guest-banner glass"><span>Guest mode · nothing is saved</span><button class="link inline" data-action="leave-guest">Leave</button></div>' : ''}
     <main class="main view-${S.view}">${content}</main>`;
 }
-
+ 
 function viewLogin() {
   return `<main class="main center-stage"><section class="glass card login-card">
     <h1 class="title">The Glade</h1>
@@ -381,7 +384,7 @@ function viewLogin() {
     <p class="hint center">Guests see a sample glade. Nothing is saved.</p>
     <p class="err center" id="login-err"></p></section></main>`;
 }
-
+ 
 function viewHome() {
   return `<section class="checkin-stage">
     <h1 class="greet">${greeting()}</h1>
@@ -395,11 +398,11 @@ function viewHome() {
     ${clearingDue() ? `<button class="clearing-chip glass" data-action="open-clearing" data-from="home">${leafSvg('clover', 26)}<span><strong>Your weekly clearing is ready</strong><span class="block small">A few small things, then they’re gone for the week.</span></span></button>` : ''}
   </section>`;
 }
-
+ 
 function cardTop() {
   return `<div class="card-top"><span class="eyebrow">${STATE_INFO[S.mood]?.label || ''}</span><button class="link small" data-action="change-energy">Change energy</button></div>`;
 }
-
+ 
 function viewStream() {
   const m = S.mood;
   if (m === 'social') {
@@ -428,7 +431,7 @@ function viewStream() {
       ${m === 'rest' ? '<button class="link center-link" data-action="just-rest">I’ll just rest instead</button>' : ''}
     </section>`;
 }
-
+ 
 function viewBegin() {
   const item = getItem(S.current);
   if (!item) { S.view = gladeHome(); return S.view === 'home' ? viewHome() : viewStream(); }
@@ -446,7 +449,7 @@ function viewBegin() {
         <button class="link" data-action="stream-back">Back to the stream</button>
       </div></section>`;
 }
-
+ 
 function viewPressed() {
   const e = S.lastPressed;
   if (!e) { S.view = gladeHome(); return S.view === 'home' ? viewHome() : viewStream(); }
@@ -457,7 +460,7 @@ function viewPressed() {
     <button class="btn glass-btn" data-action="journal-today">See today’s page</button>
     ${S.undo ? '<button class="link" data-action="undo">Undo, that was a mistake</button>' : ''}</div></section>`;
 }
-
+ 
 function panelHead(title, { back = false, close = true, sub = '' } = {}) {
   return `<div class="panel-head">
     ${back ? `<button class="icon-btn" data-action="clearing-back" aria-label="Back">${I2.back}</button>` : ''}
@@ -465,7 +468,7 @@ function panelHead(title, { back = false, close = true, sub = '' } = {}) {
     ${close ? `<button class="icon-btn" data-action="close-panel" aria-label="Close">${I2.close}</button>` : ''}
   </div>`;
 }
-
+ 
 function viewJournal() {
   const d = S.journalDate || dateStr();
   const date = parseDate(d);
@@ -490,7 +493,7 @@ function viewJournal() {
         : '<p class="muted">A quiet day. Quiet days belong here too.</p>'}
     </section></section>`;
 }
-
+ 
 function groupOf(i) {
   if (i.status === 'basket') return 'basket';
   if (i.status === 'done') return 'done';
@@ -544,7 +547,7 @@ function viewGarden() {
     ${S.items.length ? '' : '<p class="muted center">Nothing here yet. Tap Add to plant your first seed.</p>'}
   </section>`;
 }
-
+ 
 function blankForm() {
   return { title: '', states: [], hobby: false, inSeason: true, work: false, weekly: false, days: [], steps: [], deadline: null, status: 'active', lastDoneWeek: null, doneWeek: null };
 }
@@ -580,7 +583,7 @@ function viewEdit() {
       ${!isNew ? '<button type="button" class="link danger" data-action="delete-item">Delete</button>' : ''}
     </div></form>`;
 }
-
+ 
 function viewClearing() {
   const items = clearingItems();
   const closed = S.settings.clearingClosedWeek === clearingWeekKey();
@@ -598,7 +601,7 @@ function viewClearing() {
     <div class="stack">${closed ? '<p class="small center">The clearing is closed for this week.</p>' : '<button class="btn primary" data-action="close-clearing">Close the clearing for this week</button>'}
     <button class="btn glass-btn" data-action="clearing-back">${I2.back} Back</button></div></section>`;
 }
-
+ 
 function viewSettings() {
   const sm = S.settings.seasonMode || 'summer';
   const hasSeasons = (GLADE.stages || []).some(s => s.autumn || s.winter);
@@ -613,7 +616,7 @@ function viewSettings() {
     <hr>${S.guest ? '<p class="small">You’re exploring as a guest. Changes disappear when you leave or refresh.</p><button class="btn glass-btn" data-action="leave-guest">Leave guest mode</button>'
       : `<p class="small">Signed in as ${esc(S.user?.email || '')}</p><button class="btn glass-btn" data-action="signout">Sign out</button>`}</section>`;
 }
-
+ 
 // Try the glade at each growth stage and season with one slider, without pressing any leaves.
 function previewSteps() {
   const stages = (GLADE.stages || []).filter(s => s.summer || s.autumn || s.winter);
@@ -653,7 +656,7 @@ function applyPreview(index) {
   placeStage();
   placeRiver();
 }
-
+ 
 // ---------- render ----------
 function render() {
   updateGlade();
@@ -665,7 +668,7 @@ function render() {
   $app.innerHTML = shell(html);
   if (S.view === 'journal') hydratePhotos();
 }
-
+ 
 function hydratePhotos() {
   document.querySelectorAll('.photo[data-wiki]').forEach(async el => {
     const p = await fetchPhoto(el.dataset.wiki);
@@ -684,7 +687,7 @@ function hydratePhotos() {
     if (link) link.href = p.page;
   });
 }
-
+ 
 let toastTimer;
 let toastAction = null;
 function toast(msg, action = null) {
@@ -697,15 +700,16 @@ function toast(msg, action = null) {
   toastTimer = setTimeout(() => { t.classList.remove('show'); toastAction = null; }, action ? 6000 : 3200);
 }
 function showErr(id, msg) { const el = document.getElementById(id); if (el) el.textContent = msg; }
-
-function go(view) {
+ 
+function go(view, { fromHistory = false } = {}) {
   if (view === 'glade') view = gladeHome();
+  if (!fromHistory && view !== S.view) { try { history.pushState({ view }, ''); } catch { /* not allowed here */ } }
   S.view = view;
   if (view === 'journal' && !S.journalDate) S.journalDate = dateStr();
   render();
   window.scrollTo(0, 0);
 }
-
+ 
 function addStepFromInput() {
   const input = document.getElementById('new-step');
   const text = (input?.value || '').trim();
@@ -714,7 +718,7 @@ function addStepFromInput() {
   render();
   document.getElementById('new-step')?.focus();
 }
-
+ 
 function saveForm(later) {
   const f = S.form;
   f.title = (f.title || '').trim();
@@ -735,7 +739,7 @@ function saveForm(later) {
   S.form = null; S.editing = null;
   go(S.returnView || 'garden');
 }
-
+ 
 // ---------- events ----------
 document.addEventListener('click', async e => {
   const el = e.target.closest('[data-action]');
@@ -802,7 +806,7 @@ document.addEventListener('click', async e => {
       go(S.mood ? 'stream' : 'home'); break;
     }
     case 'just-rest': press(null, 'rest'); break;
-    case 'stream-back': S.view = 'stream'; render(); break;
+    case 'stream-back': if (S.timer && S.timer.itemId === S.current) stopTimer(); go('stream'); break;
     case 'journal-today': S.journalDate = dateStr(); go('journal'); break;
     case 'jday': {
       const d = parseDate(S.journalDate || dateStr());
@@ -858,7 +862,7 @@ document.addEventListener('click', async e => {
       go(S.clearingReturn || 'glade'); break;
   }
 });
-
+ 
 document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'preview-slider') { applyPreview(Number(t.value)); return; }
@@ -867,7 +871,7 @@ document.addEventListener('input', e => {
     if (t.dataset.field === 'title') showErr('err-title', '');
   }
 });
-
+ 
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.field && S.form && t.type === 'checkbox') { S.form[t.dataset.field] = t.checked; render(); }
@@ -878,12 +882,21 @@ document.addEventListener('change', e => {
     updateGlade();
   }
 });
-
+ 
+// The back button (or swipe back on a phone) steps back through the app's pages; the timer keeps running.
+window.addEventListener('popstate', e => {
+  if (['login', 'loading'].includes(S.view)) return;
+  let view = e.state?.view || gladeHome();
+  if (view === 'edit' && !S.form) view = 'garden';
+  if (view === 'begin' && !getItem(S.current)) view = gladeHome();
+  go(view, { fromHistory: true });
+});
+ 
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.id === 'new-step') { e.preventDefault(); addStepFromInput(); }
   if (e.key === 'Escape' && S.view === 'edit') { S.form = null; S.editing = null; go(S.returnView || 'garden'); }
 });
-
+ 
 // ---------- starting items ----------
 function starterItems() {
   const t = Date.now();
@@ -910,7 +923,7 @@ function starterItems() {
     mk({ title: 'Change driving licence online', states: ['clearing'] }),
   ];
 }
-
+ 
 // ---------- guest mode ----------
 async function enterGuest() {
   stopTimer();
@@ -928,7 +941,7 @@ function leaveGuest() {
   S.view = 'login';
   render();
 }
-
+ 
 // ---------- boot ----------
 async function loadUser(user) {
   S.view = 'loading'; render();
@@ -950,7 +963,7 @@ async function loadUser(user) {
     $app.innerHTML = `<main class="main"><section class="card"><h2>Couldn’t open your glade</h2><p>${err.code === 'permission-denied' ? 'Firestore said no. Check that the security rules from the README are published.' : 'Please check your connection and refresh.'}</p></section></main>`;
   }
 }
-
+ 
 async function boot() {
   if (!configured) { S.view = 'login'; render(); return; }
   render();
@@ -971,5 +984,5 @@ async function boot() {
     loadUser(user);
   });
 }
-
+ 
 boot();
