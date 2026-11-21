@@ -1,12 +1,10 @@
-// Paste your Firebase web config here.
-// Firebase console → Project settings (gear icon) → General → "Your apps" → Web app → SDK setup and configuration → Config.
-// These values are not secret: your data is protected by the Firestore rules, not by hiding this file.
-
-export const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:0000000000000000"
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyC-uZjHGiQ4ADizGLEYgIZRd9lxJM1jRP8",
+  authDomain: "the-glade-14.firebaseapp.com",
+  projectId: "the-glade-14",
+  storageBucket: "the-glade-14.firebasestorage.app",
+  messagingSenderId: "525155632650",
+  appId: "1:525155632650:web:22eff7696e8c6e22f981f3",
+  measurementId: "G-YGB2EY2M16"
 };
