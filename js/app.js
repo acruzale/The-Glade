@@ -421,8 +421,7 @@ function soundSettings() {
       <div class="row music-row"><button type="button" class="btn glass-btn" id="music-toggle" data-action="music-toggle">${isMusicPlaying() ? 'Pause' : 'Play'}</button><button type="button" class="btn glass-btn" data-action="music-next">Next song</button></div>
       <p class="small" id="now-playing">${isMusicPlaying() ? `Playing: ${esc(songs[currentIndex()]?.title || '')}` : 'Paused'}</p>
       <label class="check"><input type="checkbox" id="play-all" ${S.settings.playAllSongs !== false ? 'checked' : ''}><span>Play all songs one after another <span class="muted">(off = repeat this song)</span></span></label>
-      <label class="field"><span>Volume</span><input type="range" id="music-volume" min="0" max="1" step="0.05" value="${S.settings.musicVolume ?? 0.6}"></label>
-      <p class="hint">Your songs live in the <code>sounds</code> folder as song-1.mp3 to song-6.mp3. Change their titles in <code>js/glade-config.js</code>.</p>`
+      <label class="field"><span>Volume</span><input type="range" id="music-volume" min="0" max="1" step="0.05" value="${S.settings.musicVolume ?? 0.6}"></label>`
       : '<p class="hint">The speaker button at the top turns the sound on and off.</p>'}
   </fieldset>`;
 }
