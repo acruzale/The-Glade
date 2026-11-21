@@ -86,7 +86,9 @@ function clean(o) {
   for (const [k, v] of Object.entries(o)) out[k] = v === undefined ? null : v;
   return out;
 }
-const gladeHome = () => (S.mood ? 'stream' : 'home');
+// While a timer runs, the Glade tab always brings you back to it.
+const timerRunning = () => !!(S.timer && getItem(S.timer.itemId));
+const gladeHome = () => (timerRunning() ? 'begin' : S.mood ? 'stream' : 'home');
 // ---------- icons ----------
 function leafSvg(kind, size = 24) {
   const p = {
@@ -474,7 +476,9 @@ function viewStream() {
       ${step ? `<div class="step"><span class="step-label">Next small step</span>${esc(step.text)}</div>`
         : isProject ? `<p class="small">No steps yet. <button class="link inline" data-action="edit" data-id="${item.id}">Add one</button></p>` : ''}
       ${item.deadline ? `<p class="gentle-date">${deadlineText(item.deadline)}</p>` : ''}
-      <div class="row"><button class="btn primary" data-action="begin">Begin</button><button class="btn glass-btn" data-action="drift">Let it drift</button></div>
+      <div class="row">${S.timer && S.timer.itemId === item.id
+        ? `<button class="btn primary" data-action="open-timer">Continue · <span data-timer-text>${fmtUp(elapsed())}</span></button>`
+        : '<button class="btn primary" data-action="begin">Begin</button>'}<button class="btn glass-btn" data-action="drift">Let it drift</button></div>
       ${m === 'rest' ? '<button class="link center-link" data-action="just-rest">I’ll just rest instead</button>' : ''}
     </section>`;
 }
@@ -750,6 +754,8 @@ function showErr(id, msg) { const el = document.getElementById(id); if (el) el.t
 
 function go(view, { fromHistory = false } = {}) {
   if (view === 'glade') view = gladeHome();
+  if (view === 'begin' && timerRunning() && S.current !== S.timer.itemId && !getItem(S.current)) S.current = S.timer.itemId;
+  if (view === 'begin' && timerRunning() && (!S.current || S.current === S.timer.itemId)) { S.current = S.timer.itemId; S.mood = S.mood || S.timer.mood || 'focus'; }
   if (!fromHistory && view !== S.view) { try { history.pushState({ view }, ''); } catch { /* not allowed here */ } }
   S.view = view;
   if (view === 'journal' && !S.journalDate) S.journalDate = dateStr();
