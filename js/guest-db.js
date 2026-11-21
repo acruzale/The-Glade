@@ -77,7 +77,8 @@ export async function loadAll() {
   return {
     items,
     log: sampleLog(items),
-    settings: { seasonMode: 'seasons', soundOn: true, clearingDay: new Date().getDay(), clearingClosedWeek: null, seeded: true },
+    settings: { seasonMode: 'summer', soundOn: true,  // guests see the summer glade; signed-in users follow the seasons by default
+      clearingDay: new Date().getDay(), clearingClosedWeek: null, seeded: true },
   };
 }
 export function saveSettings() {}
