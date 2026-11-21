@@ -46,7 +46,8 @@ export async function loadAll(userId) {
   const items = itemsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   const log = logSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.at || 0) - (b.at || 0));
   const stored = userSnap.exists() ? (userSnap.data().settings || {}) : {};
-  const settings = { seasonMode: 'summer', clearingDay: 0, clearingClosedWeek: null, seeded: false, ...stored };
+  // Defaults for anyone who hasn't changed them yet; everything they change is saved here and loaded on any device.
+  const settings = { seasonMode: 'seasons', soundOn: true, clearingDay: 0, clearingClosedWeek: null, seeded: false, ...stored };
   return { items, log, settings };
 }
 
