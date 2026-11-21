@@ -367,7 +367,25 @@ const soundOn = () => isAmbientOn() || isMusicPlaying();
 function applyMusicSettings() {
   setupMusic(GLADE.music, { start: S.settings.songIndex ?? 0, all: S.settings.playAllSongs !== false, vol: S.settings.musicVolume ?? 0.6 });
 }
-async function toggleSound() {
+// Sound is on by default. Browsers only allow sound after a tap or click, so it starts with your first one.
+let soundArmed = false;
+function startSoundIfWanted() {
+  if (S.settings.soundOn === false || soundOn()) return;
+  const start = () => { if (S.settings.soundOn !== false && !soundOn()) toggleSound({ remember: false }); };
+  if (navigator.userActivation?.isActive) { start(); return; }
+  if (soundArmed) return;
+  soundArmed = true;
+  const onFirst = e => {
+    document.removeEventListener('pointerdown', onFirst, true);
+    document.removeEventListener('keydown', onFirst, true);
+    soundArmed = false;
+    if (e.target.closest?.('#sound-btn')) return; // that tap is already about the sound
+    start();
+  };
+  document.addEventListener('pointerdown', onFirst, true);
+  document.addEventListener('keydown', onFirst, true);
+}
+async function toggleSound({ remember = true } = {}) {
   if (soundMode() === 'music' && hasSongs()) {
     if (isAmbientOn()) await toggleAmbient();
     toggleMusic();
@@ -375,6 +393,7 @@ async function toggleSound() {
     if (isMusicPlaying()) pauseMusic();
     await toggleAmbient();
   }
+  if (remember) saveSettings({ soundOn: soundOn() });
   refreshSoundUi();
 }
 function refreshSoundUi() {
@@ -808,7 +827,7 @@ document.addEventListener('click', async e => {
     case 'guest': await enterGuest(); break;
     case 'leave-guest': leaveGuest(); break;
     case 'sound': await toggleSound(); break;
-    case 'music-toggle': if (isAmbientOn()) await toggleAmbient(); toggleMusic(); refreshSoundUi(); break;
+    case 'music-toggle': if (isAmbientOn()) await toggleAmbient(); toggleMusic(); saveSettings({ soundOn: isMusicPlaying() }); refreshSoundUi(); break;
     case 'music-next': if (isAmbientOn()) await toggleAmbient(); nextSong(); saveSettings({ songIndex: currentIndex() }); refreshSoundUi(); break;
     case 'preview-reset': applyPreview(0); break;
     case 'toast-action': {
@@ -994,6 +1013,7 @@ async function enterGuest() {
   restoreTimer();
   applyMusicSettings();
   go('home');
+  startSoundIfWanted();
   setTimeout(() => toast('Welcome! This is a sample glade. Try checking in.'), 500);
 }
 function leaveGuest() {
@@ -1022,6 +1042,7 @@ async function loadUser(user) {
     applyMusicSettings();
     S.view = 'home';
     render();
+    startSoundIfWanted();
   } catch (err) {
     console.error(err);
     $app.innerHTML = `<main class="main"><section class="card"><h2>Couldn’t open your glade</h2><p>${err.code === 'permission-denied' ? 'Firestore said no. Check that the security rules from the README are published.' : 'Please check your connection and refresh.'}</p></section></main>`;
