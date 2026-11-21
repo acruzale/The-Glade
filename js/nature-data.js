@@ -96,7 +96,8 @@ export function natureForDate(date) {
 }
 
 // Real photos come from Wikipedia's free summary API, cached on the device.
-const CACHE_KEY = 'glade-photos-v1';
+// Wikimedia only serves certain thumbnail widths, so we offer a few safe options and the page tries them in order.
+const CACHE_KEY = 'glade-photos-v2';
 let cache = null;
 function getCache() {
   if (cache) return cache;
@@ -111,11 +112,14 @@ export async function fetchPhoto(wiki) {
     const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wiki.replace(/ /g, '_'))}`);
     if (!res.ok) return null;
     const j = await res.json();
-    let src = null;
-    if (j.originalimage && j.originalimage.width <= 900) src = j.originalimage.source;
-    else if (j.thumbnail) src = j.thumbnail.source.replace(/\/\d+px-/, '/800px-');
-    if (!src) return null;
-    const out = { src, page: j.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(wiki)}` };
+    const srcs = [];
+    if (j.thumbnail?.source) {
+      srcs.push(j.thumbnail.source.replace(/\/\d+px-/, '/960px-')); // a standard large size
+      srcs.push(j.thumbnail.source);                                // exactly what Wikipedia offered
+    }
+    if (j.originalimage?.source) srcs.push(j.originalimage.source); // the full original as a last resort
+    if (!srcs.length) return null;
+    const out = { srcs: [...new Set(srcs)], page: j.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(wiki)}` };
     c[wiki] = out;
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch { /* storage full or blocked */ }
     return out;
