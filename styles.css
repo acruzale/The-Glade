@@ -258,6 +258,10 @@ select option { color: #17241c; background: #fff; }
 .step-text { flex: 1; text-align: left; background: none; border: 0; padding: 4px 0; }
 .steps-edit li.done .step-text { text-decoration: line-through; color: var(--muted); }
 
+/* music */
+.music-row { margin-top: 12px; }
+#music-volume { width: 100%; accent-color: #ffffff; }
+
 /* preview slider */
 .preview-label { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 4px; font-family: var(--font-head); font-size: 1.15rem; }
 #preview-slider { width: 100%; height: 32px; accent-color: #ffffff; cursor: pointer; }
