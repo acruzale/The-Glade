@@ -147,7 +147,6 @@ function press(item, state, { navigate = true, prev = null } = {}) {
   S.lastPressed = saved;
   S.undo = { logId: saved.id, itemId: item?.id || null, prev, timerUndo };
   if (navigate) { S.view = 'pressed'; render(); }
-  else toast(`${/^[aeiou]/.test(LEAF_NAMES[kind]) ? 'An' : 'A'} ${LEAF_NAMES[kind]} was pressed into today’s page.`, { label: 'Undo', fn: () => { undoLast(); render(); } });
 }
 function undoLast() {
   const u = S.undo;
@@ -224,7 +223,6 @@ function tick() {
   if (e >= TIMER_LIMIT) {
     clearInterval(S.timerInt); S.timerInt = null;
     document.querySelectorAll('[data-timer-text]').forEach(el => { el.textContent = fmtUp(e); });
-    toast('The timer stopped at 4 hours. Press “Done” whenever you like and it’ll be saved.');
     return;
   }
   if (!S.timer.chimed && e >= STARTER_MINUTES * 60000) {
@@ -614,7 +612,7 @@ function itemRow(i) {
     <button class="item-main" data-action="edit" data-id="${i.id}"><span class="item-title">${esc(i.title)}</span><span class="chips">${chipsFor(i)}</span></button>
     ${i.status === 'active' ? (S.timer && S.timer.itemId === i.id
       ? `<button class="start-btn" data-action="open-timer"><span data-timer-text>${fmtUp(elapsed())}</span><span>Continue</span></button>`
-      : `<button class="start-btn" data-action="start-item" data-id="${i.id}" aria-label="Start ${esc(i.title)}">${I2.play}<span>Start</span></button>`) : ''}
+      : timerRunning() ? '' : `<button class="start-btn" data-action="start-item" data-id="${i.id}" aria-label="Start ${esc(i.title)}">${I2.play}<span>Start</span></button>`) : ''}
     ${i.hobby && i.status === 'active' ? `<button class="season-toggle ${i.inSeason ? 'on' : ''}" data-action="season" data-id="${i.id}" aria-pressed="${!!i.inSeason}">${leafSvg('flower', 22)}<span>${i.inSeason ? 'In season' : 'Seed'}</span></button>` : ''}
     ${i.status === 'done' ? `<button class="season-toggle" data-action="bring-back" data-id="${i.id}">${I2.back}<span>Bring back</span></button>` : ''}
   </div>`;
@@ -627,6 +625,7 @@ function viewGarden() {
     ${panelHead('Garden', { sub: 'Everything that can float down your stream.' })}
     <div class="row garden-actions"><button class="btn primary" data-action="add">${I.plus}<span>Add</span></button>
     <button class="btn glass-btn" data-action="open-clearing" data-from="garden">${leafSvg('clover', 20)} Weekly clearing</button></div>
+    ${timerRunning() ? `<p class="hint">You’re in a sitting with “${esc(getItem(S.timer.itemId).title)}”. Tap Continue on it, and once you’re done for now you can start something else.</p>` : ''}
     ${GROUPS.filter(([k]) => groups[k]?.length).map(([k, title, hint]) => `
       <section class="group ${k === 'basket' ? 'basket' : ''}"><h3>${title}</h3>${hint ? `<p class="hint">${hint}</p>` : ''}
       ${groups[k].map(itemRow).join('')}</section>`).join('')}
@@ -837,7 +836,6 @@ function saveForm(later) {
   };
   if (S.editing) updateItem(S.editing, data);
   else addItem({ ...data, createdAt: Date.now() });
-  toast(later ? 'Saved in your seed basket.' : 'Saved.');
   S.form = null; S.editing = null;
   go(S.returnView || 'garden');
 }
@@ -886,7 +884,7 @@ document.addEventListener('click', async e => {
       const it = getItem(el.dataset.id);
       if (!it) break;
       if (timerRunning() && S.timer.itemId !== it.id) {
-        toast(`Your timer for “${getItem(S.timer.itemId).title}” is still running. Tap “Done for now” there first.`, { label: 'Go there', fn: () => { S.current = S.timer.itemId; S.mood = S.mood || S.timer.mood || 'focus'; go('begin'); } });
+        S.current = S.timer.itemId; S.mood = S.mood || S.timer.mood || 'focus'; go('begin'); // one sitting at a time
         break;
       }
       S.current = it.id; S.leafId = it.id;
@@ -948,7 +946,7 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'season': { const it = getItem(el.dataset.id); updateItem(it.id, { inSeason: !it.inSeason }); render(); break; }
-    case 'bring-back': updateItem(el.dataset.id, { status: 'active', doneWeek: null }); toast('Brought back.'); render(); break;
+    case 'bring-back': updateItem(el.dataset.id, { status: 'active', doneWeek: null }); render(); break;
     case 'add': S.form = blankForm(); S.editing = null; S.returnView = 'garden'; go('edit'); break;
     case 'edit': {
       const it = getItem(el.dataset.id);
@@ -976,13 +974,13 @@ document.addEventListener('click', async e => {
     case 'save-later': saveForm(true); break;
     case 'delete-item':
       if (el.dataset.confirm !== '1') { el.dataset.confirm = '1'; el.textContent = 'Tap again to delete'; break; }
-      deleteItem(S.editing); S.form = null; S.editing = null; toast('Deleted.');
+      deleteItem(S.editing); S.form = null; S.editing = null;
       go(GLADE_VIEWS.includes(S.returnView) ? 'glade' : 'garden'); break;
     case 'open-clearing': S.clearingReturn = el.dataset.from === 'home' ? 'glade' : 'garden'; go('clearing'); break;
     case 'clearing-back': go(S.clearingReturn || 'garden'); break;
     case 'clear-tick': {
       const it = getItem(el.dataset.id);
-      if (doneThisWeek(it)) { untickClearing(it); toast('Undone.'); render(); break; }
+      if (doneThisWeek(it)) { untickClearing(it); render(); break; }
       const prev = it.weekly ? { lastDoneWeek: it.lastDoneWeek || null } : { status: 'active', doneWeek: null };
       if (it.weekly) updateItem(it.id, { lastDoneWeek: clearingWeekKey() });
       else updateItem(it.id, { status: 'done', doneWeek: clearingWeekKey() });
@@ -991,7 +989,6 @@ document.addEventListener('click', async e => {
     }
     case 'close-clearing':
       saveSettings({ clearingClosedWeek: clearingWeekKey() });
-      toast('The clearing is closed until next week.');
       go(S.clearingReturn || 'glade'); break;
   }
 });
@@ -1022,7 +1019,6 @@ document.addEventListener('change', e => {
       render();
       return;
     }
-    toast('Saved.');
     updateGlade();
   }
 });
@@ -1078,7 +1074,6 @@ async function enterGuest() {
   applyMusicSettings();
   go('home');
   startSoundIfWanted();
-  setTimeout(() => toast('Welcome! This is a sample glade. Try checking in.'), 500);
 }
 function leaveGuest() {
   stopTimer();
@@ -1098,7 +1093,6 @@ async function loadUser(user) {
     if (!S.settings.seeded) {
       if (!S.items.length) {
         S.items = await db.seed(starterItems());
-        setTimeout(() => toast('Your projects, hobbies and must-dos are already in the Garden.'), 600);
       }
       saveSettings({ seeded: true });
     }
