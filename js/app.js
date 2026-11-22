@@ -551,11 +551,25 @@ function panelHead(title, { back = false, close = true, sub = '' } = {}) {
   </div>`;
 }
 
+// The journal shows one line per project per day: the total time and steps, not how many sittings it took.
+function groupDay(list) {
+  const byKey = new Map();
+  for (const e of list) {
+    const key = e.itemId || `title:${e.title}`;
+    const g = byKey.get(key);
+    if (!g) { byKey.set(key, { ...e, states: e.state ? [e.state] : [] }); continue; }
+    g.minutes = (g.minutes || 0) + (e.minutes || 0);
+    g.steps = (g.steps || 0) + (e.steps || 0);
+    if (e.state && !g.states.includes(e.state)) g.states.push(e.state);
+    g.kind = e.kind; g.title = e.title; // the latest leaf and name
+  }
+  return [...byKey.values()];
+}
 function viewJournal() {
   const d = S.journalDate || dateStr();
   const date = parseDate(d);
   const { kind, item: n } = natureForDate(date);
-  const entries = S.log.filter(l => l.date === d);
+  const entries = groupDay(S.log.filter(l => l.date === d));
   const isToday = d === dateStr();
   return `<section class="panel paper">
     <div class="journal-head">
@@ -571,7 +585,7 @@ function viewJournal() {
       <a class="small link-out" data-wiki-link href="https://en.wikipedia.org/wiki/${encodeURIComponent(n.wiki.replace(/ /g, '_'))}" target="_blank" rel="noopener">Read more on Wikipedia</a></div>
     </article>
     <section class="pressed-list"><h3>Pressed on this day</h3>
-      ${entries.length ? `<ul>${entries.map(e => `<li>${leafSvg(e.kind, 28)}<span>${esc(e.title)}</span><span class="small muted">${e.steps ? `${e.steps} step${e.steps > 1 ? 's' : ''} · ` : ''}${e.minutes ? `${fmtMinutes(e.minutes)} · ` : ''}${e.kind === 'oak' ? 'Regular day' : (STATE_INFO[e.state]?.label || '')}</span></li>`).join('')}</ul>`
+      ${entries.length ? `<ul>${entries.map(e => `<li>${leafSvg(e.kind, 28)}<span>${esc(e.title)}</span><span class="small muted">${e.steps ? `${e.steps} step${e.steps > 1 ? 's' : ''} · ` : ''}${e.minutes ? `${fmtMinutes(e.minutes)} · ` : ''}${e.kind === 'oak' ? 'Regular day' : e.states.map(st => STATE_INFO[st]?.label).filter(Boolean).join(', ')}</span></li>`).join('')}</ul>`
         : '<p class="muted">A quiet day. Quiet days belong here too.</p>'}
     </section></section>`;
 }
