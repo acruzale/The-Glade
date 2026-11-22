@@ -142,7 +142,7 @@ function press(item, state, { navigate = true, prev = null, keepTimer = false } 
       timerUndo = { split: S.timer.split };
       S.timer.split = Math.min(Date.now(), S.timer.start + TIMER_LIMIT);
       saveTimer();
-    } else stopTimer();
+    } else { timerUndo = { timer: { ...S.timer } }; stopTimer(); } // kept so Undo can bring the timer back
   }
   const saved = db.addLog(entry);
   S.log.push(saved);
@@ -157,9 +157,16 @@ function undoLast() {
   S.log = S.log.filter(l => l.id !== u.logId);
   db.deleteLog(u.logId);
   if (u.itemId && u.prev) updateItem(u.itemId, u.prev);
-  if (u.timerUndo && S.timer && S.timer.itemId === u.itemId) { S.timer.split = u.timerUndo.split; saveTimer(); }
+  let timerBack = false;
+  if (u.timerUndo?.timer && !S.timer && getItem(u.itemId)) {
+    // "Done" was a mistake: the timer carries on from its original start, as if it never stopped.
+    S.timer = u.timerUndo.timer; saveTimer();
+    if (elapsed() < TIMER_LIMIT) ensureTick();
+    timerBack = true;
+  } else if (u.timerUndo && S.timer && S.timer.itemId === u.itemId) { S.timer.split = u.timerUndo.split; saveTimer(); }
   S.undo = null;
   S.lastPressed = null;
+  return timerBack;
 }
 function untickClearing(it) {
   const key = clearingWeekKey();
@@ -911,7 +918,11 @@ document.addEventListener('click', async e => {
     }
     case 'undo': {
       const itemId = S.undo?.itemId;
-      undoLast();
+      if (undoLast()) {
+        toast('Undone. Your timer is back.');
+        S.current = itemId; S.mood = S.mood || S.timer.mood || 'focus';
+        go('begin'); break;
+      }
       toast('Undone. Nothing was pressed.');
       if (itemId && getItem(itemId)?.status === 'active') { S.leafId = itemId; }
       go(S.mood ? 'stream' : 'home'); break;
