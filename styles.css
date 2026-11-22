@@ -235,6 +235,14 @@ body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
 .season-toggle svg { opacity: .5; filter: grayscale(1); }
 .season-toggle.on { border-style: solid; background: var(--glass-strong); color: #fff; }
 .season-toggle.on svg { opacity: 1; filter: none; }
+.start-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 72px; flex-shrink: 0; border-radius: 16px; border: 1px solid var(--glass-btn-line); background: var(--glass-strong); color: #fff; font-size: .78rem; }
+.start-btn:hover { background: var(--glass-btn); }
+.start-btn svg { opacity: .9; }
+@media (max-width: 480px) {
+  .item-row { gap: 6px; }
+  .start-btn { width: 56px; }
+  .item-row .season-toggle { width: 64px; }
+}
 
 /* form */
 .form fieldset, .panel fieldset { border: 0; padding: 0; margin: 18px 0 0; min-width: 0; }

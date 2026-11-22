@@ -120,6 +120,7 @@ const I = {
 const I2 = {
   close: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>',
   back: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 L8 12 L15 19"/></svg>',
+  play: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5.5 L18.5 12 L8 18.5 Z"/></svg>',
 };
 
 // ---------- data actions ----------
@@ -607,6 +608,9 @@ function chipsFor(i) {
 function itemRow(i) {
   return `<div class="item-row">
     <button class="item-main" data-action="edit" data-id="${i.id}"><span class="item-title">${esc(i.title)}</span><span class="chips">${chipsFor(i)}</span></button>
+    ${i.status === 'active' ? (S.timer && S.timer.itemId === i.id
+      ? `<button class="start-btn" data-action="open-timer"><span data-timer-text>${fmtUp(elapsed())}</span><span>Continue</span></button>`
+      : `<button class="start-btn" data-action="start-item" data-id="${i.id}" aria-label="Start ${esc(i.title)}">${I2.play}<span>Start</span></button>`) : ''}
     ${i.hobby && i.status === 'active' ? `<button class="season-toggle ${i.inSeason ? 'on' : ''}" data-action="season" data-id="${i.id}" aria-pressed="${!!i.inSeason}">${leafSvg('flower', 22)}<span>${i.inSeason ? 'In season' : 'Seed'}</span></button>` : ''}
     ${i.status === 'done' ? `<button class="season-toggle" data-action="bring-back" data-id="${i.id}">${I2.back}<span>Bring back</span></button>` : ''}
   </div>`;
@@ -861,6 +865,17 @@ document.addEventListener('click', async e => {
     case 'restart-stream': S.drifted = new Set(); S.leafId = pickLeaf(S.mood)?.id || null; render(); break;
     case 'another-leaf': S.leafId = pickLeaf(S.mood)?.id || null; go('stream'); break;
     case 'begin': S.current = S.leafId; go('begin'); break;
+    case 'start-item': { // choose a task yourself from the Garden
+      const it = getItem(el.dataset.id);
+      if (!it) break;
+      if (timerRunning() && S.timer.itemId !== it.id) {
+        toast(`Your timer for “${getItem(S.timer.itemId).title}” is still running. Tap “Done for now” there first.`, { label: 'Go there', fn: () => { S.current = S.timer.itemId; S.mood = S.mood || S.timer.mood || 'focus'; go('begin'); } });
+        break;
+      }
+      S.current = it.id; S.leafId = it.id;
+      S.mood = (S.mood && (it.states || []).includes(S.mood)) ? S.mood : (it.states || [])[0] || S.mood || 'focus';
+      go('begin'); break;
+    }
     case 'open-timer': S.current = S.timer.itemId; S.mood = S.mood || S.timer.mood || 'focus'; go('begin'); break;
     case 'start-timer': startTimer(); break;
     case 'step-done': {
