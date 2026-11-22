@@ -748,8 +748,23 @@ function render() {
   const views = { home: viewHome, stream: viewStream, begin: viewBegin, pressed: viewPressed, journal: viewJournal, garden: viewGarden, edit: viewEdit, clearing: viewClearing, settings: viewSettings };
   const html = (views[S.view] || viewHome)();
   updateGlade(); // a view may have redirected
+  // Cards only fade in when you arrive somewhere new. A tap on the same page updates it in place
+  // and keeps your scroll position, so nothing flickers or jumps back to the top.
+  const same = S.view === lastView && !forceEnter;
+  const scroll = same ? [...$app.querySelectorAll('.panel, .float-card')].map(el => el.scrollTop) : [];
+  $app.dataset.same = same ? '1' : '';
   $app.innerHTML = shell(html);
+  if (same) $app.querySelectorAll('.panel, .float-card').forEach((el, k) => { if (scroll[k]) el.scrollTop = scroll[k]; });
+  lastView = S.view; forceEnter = false;
   if (S.view === 'journal') hydratePhotos();
+}
+let lastView = null, forceEnter = false;
+// A soft crossfade for content that changed in place (e.g. the next step after "Step done").
+function softSwap(el) {
+  if (!el?.animate) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  el.animate(reduce ? [{ opacity: 0.4 }, { opacity: 1 }] : [{ opacity: 0.35, filter: 'blur(2px)' }, { opacity: 1, filter: 'blur(0)' }],
+    { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
 }
 
 function hydratePhotos() {
@@ -859,11 +874,11 @@ document.addEventListener('click', async e => {
       const leaf = $river.querySelector('.river-leaf'), card = document.getElementById('leaf-card');
       leaf?.classList.add('away'); card?.classList.add('away');
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      setTimeout(() => { S.drifted.add(S.leafId); S.leafId = pickLeaf(S.mood)?.id || null; render(); }, reduce ? 0 : 650);
+      setTimeout(() => { S.drifted.add(S.leafId); S.leafId = pickLeaf(S.mood)?.id || null; forceEnter = true; render(); }, reduce ? 0 : 650);
       break;
     }
-    case 'restart-stream': S.drifted = new Set(); S.leafId = pickLeaf(S.mood)?.id || null; render(); break;
-    case 'another-leaf': S.leafId = pickLeaf(S.mood)?.id || null; go('stream'); break;
+    case 'restart-stream': S.drifted = new Set(); S.leafId = pickLeaf(S.mood)?.id || null; forceEnter = true; render(); break;
+    case 'another-leaf': S.leafId = pickLeaf(S.mood)?.id || null; forceEnter = true; go('stream'); break;
     case 'begin': S.current = S.leafId; go('begin'); break;
     case 'start-item': { // choose a task yourself from the Garden
       const it = getItem(el.dataset.id);
@@ -884,7 +899,7 @@ document.addEventListener('click', async e => {
       const k = (it.steps || []).findIndex(s => !s.done);
       if (k >= 0) updateItem(it.id, { steps: it.steps.map((s, j) => (j === k ? { ...s, done: true } : s)) });
       // In the flow: with the timer running, stay here, keep counting and show the next step.
-      if (S.timer && S.timer.itemId === it.id) { press(it, S.mood, { prev, navigate: false, keepTimer: true }); render(); }
+      if (S.timer && S.timer.itemId === it.id) { press(it, S.mood, { prev, navigate: false, keepTimer: true }); render(); softSwap($app.querySelector('.step.big')); }
       else press(it, S.mood, { prev });
       break;
     }

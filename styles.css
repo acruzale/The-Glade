@@ -24,6 +24,7 @@
   --text-shadow: 0 1px 3px rgba(0, 20, 10, .55), 0 0 10px rgba(0, 20, 10, .25);
   --font-head: 'Fraunces', Georgia, serif;
   --font-body: 'Nunito Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1); /* starts moving at once, settles softly */
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -153,17 +154,16 @@ a { color: inherit; }
 .greet-sub { color: rgba(255, 255, 255, .92); font-size: 1.15rem; text-shadow: 0 1px 10px rgba(0, 0, 0, .4); margin-bottom: 30px; }
 .checkin { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .mood { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 14px 22px; border-radius: 26px; color: var(--ink); transition: transform .2s ease, background .2s ease; }
-.mood:hover { transform: translateY(-3px); background: var(--glass-strong); }
-.mood:active { transform: scale(.98); }
+.mood:active { transform: scale(.97); transition-duration: .12s; transition-timing-function: var(--ease-out); }
 .mood-icon { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8); margin-bottom: 6px; }
 .mood-label { font-family: var(--font-head); font-size: 1.22rem; }
 .mood-hint { color: var(--muted); font-size: .88rem; }
 .clearing-chip { display: inline-flex; align-items: center; gap: 12px; margin-top: 26px; padding: 12px 20px; border-radius: 20px; text-align: left; color: var(--ink); }
 
 /* ---------- the floating card over the open glade ---------- */
-.float-card { position: fixed; right: max(5vw, 24px); top: calc(13vh + env(safe-area-inset-top)); width: min(440px, calc(100vw - 48px)); max-height: calc(100vh - 13vh - 40px); overflow: auto; border-radius: 28px; padding: 26px 28px; animation: rise .6s ease both; }
+.float-card { position: fixed; right: max(5vw, 24px); top: calc(13vh + env(safe-area-inset-top)); width: min(440px, calc(100vw - 48px)); max-height: calc(100vh - 13vh - 40px); overflow: auto; border-radius: 28px; padding: 26px 28px; animation: rise .4s var(--ease-out) both; }
 body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
-.float-card.away { animation: fadeOut .45s ease forwards; }
+.float-card.away { animation: fadeOut .28s ease forwards; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes fadeOut { to { opacity: 0; transform: translateY(8px); } }
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -189,7 +189,7 @@ body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
 .timer-done { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #fff; }
 
 /* ---------- panels (journal, garden, settings…) ---------- */
-.panel { max-width: 760px; margin: 0 auto; max-height: calc(100vh - 140px - env(safe-area-inset-top)); overflow: auto; border-radius: 28px; padding: 26px 30px 30px; animation: rise .5s ease both; }
+.panel { max-width: 760px; margin: 0 auto; max-height: calc(100vh - 140px - env(safe-area-inset-top)); overflow: auto; border-radius: 28px; padding: 26px 30px 30px; animation: rise .4s var(--ease-out) both; }
 .panel-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
 .panel-title { flex: 1; }
 .panel-title h1 { margin-bottom: .1em; }
@@ -215,7 +215,6 @@ body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
 
 /* inside glass: inputs, rows and hints tuned for the shared glass look */
 .glass .item-main { background: rgba(255, 255, 255, .1); }
-.glass .item-main:hover { background: rgba(255, 255, 255, .18); }
 .glass .hint, .glass .muted { color: rgba(255, 255, 255, .88); }
 
 /* garden */
@@ -227,7 +226,6 @@ body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
 .group.done summary { cursor: pointer; color: var(--muted); padding: 6px 0; font-weight: 600; }
 .item-row { display: flex; gap: 8px; align-items: stretch; margin-top: 8px; }
 .item-main { flex: 1; text-align: left; display: flex; flex-direction: column; gap: 6px; padding: 12px 15px; border-radius: 16px; border: 1px solid var(--glass-btn-line); background: var(--row); }
-.item-main:hover { background: var(--glass-btn); }
 .item-title { font-weight: 600; }
 .chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .chip { font-size: .74rem; padding: 2px 9px; border-radius: 999px; background: var(--moss-soft); color: #fff; font-weight: 600; }
@@ -236,7 +234,6 @@ body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
 .season-toggle.on { border-style: solid; background: var(--glass-strong); color: #fff; }
 .season-toggle.on svg { opacity: 1; filter: none; }
 .start-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 72px; flex-shrink: 0; border-radius: 16px; border: 1px solid var(--glass-btn-line); background: var(--glass-strong); color: #fff; font-size: .78rem; }
-.start-btn:hover { background: var(--glass-btn); }
 .start-btn svg { opacity: .9; }
 @media (max-width: 480px) {
   .item-row { gap: 6px; }
@@ -285,12 +282,9 @@ select option { color: #17241c; background: #fff; }
 .tick.on { background: rgba(255, 255, 255, .9); color: #2f4a37; }
 
 /* ---------- shared bits ---------- */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px; border-radius: 999px; border: 1px solid transparent; font-weight: 600; transition: background .2s ease, transform .1s ease; }
-.btn:active { transform: scale(.98); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px; border-radius: 999px; border: 1px solid transparent; font-weight: 600; transition: background .2s ease, transform .14s var(--ease-out); }
 .btn.primary { background: rgba(63, 107, 71, .85); color: #fff; border-color: rgba(255, 255, 255, .35); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); text-shadow: none; }
-.btn.primary:hover { background: var(--moss-hover); }
 .btn.glass-btn { background: var(--glass-btn); border-color: var(--glass-btn-line); color: var(--ink); }
-.btn.glass-btn:hover { background: var(--glass-strong); }
 .btn.wide { width: 100%; margin: 6px 0; }
 .link { background: none; border: 0; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; padding: 8px; opacity: .85; }
 .link.inline { padding: 0; }
@@ -341,7 +335,32 @@ select option { color: #17241c; background: #fff; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* keep soft fades so screens don't snap; only the movement goes */
+  #app:not([data-same="1"]) .float-card:not(.away), #app:not([data-same="1"]) .panel { animation: fadeIn .3s ease both !important; }
+  .toast { transition: opacity .3s ease !important; }
   .animal { opacity: 1; }
   .fx-leaf, .fx-glint, .fx-ring, .fx-snow { display: none; }
   .river-leaf { transform: translate(var(--x0), var(--y0)); }
+}
+
+/* ---------- polish: arriving, pressing, hovering ---------- */
+/* a tap on the same page updates it in place, without replaying the fade-in */
+#app[data-same="1"] .float-card:not(.away), #app[data-same="1"] .panel { animation: none; }
+@keyframes fadeIn { from { opacity: 0; } }
+
+/* every tappable thing answers a press the same quiet way */
+.start-btn, .season-toggle, .item-main, .nav button, .icon-btn, .toast button, .timer-chip, .clearing-chip, .link {
+  transition: transform .14s var(--ease-out), background .2s ease;
+}
+.start-btn:active, .season-toggle:active, .item-main:active, .nav button:active, .icon-btn:not(:disabled):active,
+.toast button:active, .timer-chip:active, .clearing-chip:active, .btn:active, .link:active { transform: scale(.97); }
+
+/* hover only where there is a mouse, so tapped things don't stay lit on phones */
+@media (hover: hover) and (pointer: fine) {
+  .mood:hover { transform: translateY(-3px); background: var(--glass-strong); }
+  .mood:active { transform: translateY(-3px) scale(.97); }
+  .btn.primary:hover { background: var(--moss-hover); }
+  .btn.glass-btn:hover, .start-btn:hover { background: var(--glass-strong); }
+  .item-main:hover { background: var(--glass-btn); }
+  .glass .item-main:hover { background: rgba(255, 255, 255, .18); }
 }
