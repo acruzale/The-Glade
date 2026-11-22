@@ -235,6 +235,7 @@ body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
 .group h3 { margin-bottom: .2em; }
 .group.basket { background: var(--sand); border-radius: 20px; padding: 14px; }
 .group.done summary { cursor: pointer; color: var(--muted); padding: 6px 0; font-weight: 600; }
+.group.done .item-title { text-decoration: line-through; opacity: .75; }
 .item-row { display: flex; gap: 8px; align-items: stretch; margin-top: 8px; }
 .item-main { flex: 1; text-align: left; display: flex; flex-direction: column; gap: 6px; padding: 12px 15px; border-radius: 16px; border: 1px solid var(--glass-btn-line); background: var(--row); }
 .item-title { font-weight: 600; }
@@ -250,6 +251,7 @@ body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
   .item-row { gap: 6px; }
   .start-btn { width: 56px; }
   .item-row .season-toggle { width: 64px; }
+  .garden-tick { width: 30px; height: 30px; }
 }
 
 /* form */
@@ -291,6 +293,10 @@ select option { color: #17241c; background: #fff; }
 .clearing-list li.done .item-title { color: var(--muted); text-decoration: line-through; }
 .tick { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .85); background: transparent; color: transparent; display: grid; place-items: center; }
 .tick.on { background: rgba(255, 255, 255, .9); color: #2f4a37; }
+.garden-tick { align-self: center; transition: background .25s ease, color .25s ease, transform .14s var(--ease-out); }
+.garden-tick:active { transform: scale(.94); }
+.item-row.finished .item-title { text-decoration: line-through; opacity: .7; }
+.item-row.finished .chips { opacity: .6; }
 
 /* ---------- shared bits ---------- */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px; border-radius: 999px; border: 1px solid transparent; font-weight: 600; transition: background .2s ease, transform .14s var(--ease-out); }

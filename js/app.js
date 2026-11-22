@@ -78,8 +78,14 @@ function clearingWeekKey() {
   return dateStr(new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff));
 }
 const isClearing = i => (i.states || []).includes('clearing');
-const doneThisWeek = i => (i.weekly ? i.lastDoneWeek === clearingWeekKey() : i.status === 'done' && i.doneWeek === clearingWeekKey());
-const clearingItems = () => S.items.filter(i => isClearing(i) && (i.status === 'active' || (i.status === 'done' && i.doneWeek === clearingWeekKey())));
+// Finished one-off things stay visible (struck out) for a week, then quietly leave the lists. Nothing is deleted.
+const WEEK_MS = 7 * 24 * 60 * 60000;
+const recentlyDone = i => i.status === 'done' && (i.doneAt ? Date.now() - i.doneAt < WEEK_MS : i.doneWeek === clearingWeekKey());
+const doneToday = i => i.status === 'done' && !!i.doneAt && dateStr(new Date(i.doneAt)) === dateStr();
+// Things that can be finished from the Garden: not regular days, not "every week" clearing items.
+const canFinish = i => !isRegular(i) && !i.weekly && (i.status === 'active' || doneToday(i));
+const doneThisWeek = i => (i.weekly ? i.lastDoneWeek === clearingWeekKey() : i.status === 'done');
+const clearingItems = () => S.items.filter(i => isClearing(i) && (i.status === 'active' || recentlyDone(i)));
 const clearingDue = () => S.settings.clearingClosedWeek !== clearingWeekKey() && clearingItems().some(i => !doneThisWeek(i));
 function clean(o) {
   const out = {};
@@ -174,7 +180,7 @@ function untickClearing(it) {
   const entry = [...S.log].reverse().find(l => l.itemId === it.id && l.state === 'clearing' && l.date >= key);
   if (entry) { S.log = S.log.filter(l => l !== entry); db.deleteLog(entry.id); }
   if (it.weekly) updateItem(it.id, { lastDoneWeek: null });
-  else updateItem(it.id, { status: 'active', doneWeek: null });
+  else updateItem(it.id, { status: 'active', doneWeek: null, doneAt: null });
 }
 
 // ---------- the stream ----------
@@ -615,7 +621,7 @@ function viewJournal() {
 
 function groupOf(i) {
   if (i.status === 'basket') return 'basket';
-  if (i.status === 'done') return 'done';
+  if (i.status === 'done' && !doneToday(i)) return 'done'; // finished today: stays in its place, struck out
   if (isRegular(i)) return 'regular';
   if (i.hobby) return 'hobby';
   const st = i.states || [];
@@ -645,19 +651,22 @@ function chipsFor(i) {
   return c.filter(Boolean).map(t => `<span class="chip">${esc(t)}</span>`).join('');
 }
 function itemRow(i) {
-  return `<div class="item-row">
+  const finished = doneToday(i);
+  const tick = canFinish(i) && !(S.timer && S.timer.itemId === i.id)
+    ? `<button class="tick garden-tick ${finished ? 'on' : ''}" data-action="garden-tick" data-id="${i.id}" aria-pressed="${finished}" aria-label="${finished ? 'Not finished' : 'Finished'}: ${esc(i.title)}">${I.check}</button>` : '';
+  return `<div class="item-row ${finished ? 'finished' : ''}">${tick}
     <button class="item-main" data-action="edit" data-id="${i.id}"><span class="item-title">${esc(i.title)}</span><span class="chips">${chipsFor(i)}</span></button>
     ${i.status === 'active' ? (S.timer && S.timer.itemId === i.id
       ? `<button class="start-btn" data-action="open-timer"><span data-timer-text>${fmtUp(elapsed())}</span><span>Continue</span></button>`
       : timerRunning() ? '' : `<button class="start-btn" data-action="start-item" data-id="${i.id}" aria-label="Start ${esc(i.title)}">${I2.play}<span>Start</span></button>`) : ''}
     ${i.hobby && i.status === 'active' ? `<button class="season-toggle ${i.inSeason ? 'on' : ''}" data-action="season" data-id="${i.id}" aria-pressed="${!!i.inSeason}">${leafSvg('flower', 22)}<span>${i.inSeason ? 'In season' : 'Seed'}</span></button>` : ''}
-    ${i.status === 'done' ? `<button class="season-toggle" data-action="bring-back" data-id="${i.id}">${I2.back}<span>Bring back</span></button>` : ''}
+    ${i.status === 'done' && !finished ? `<button class="season-toggle" data-action="bring-back" data-id="${i.id}">${I2.back}<span>Bring back</span></button>` : ''}
   </div>`;
 }
 function viewGarden() {
   const groups = {};
   S.items.forEach(i => { (groups[groupOf(i)] ||= []).push(i); });
-  const done = groups.done || [];
+  const done = (groups.done || []).filter(recentlyDone); // the Finished section only shows the last week
   return `<section class="panel glass">
     ${panelHead('Garden', { sub: 'Everything that can float down your stream.' })}
     <div class="row garden-actions"><button class="btn primary" data-action="add">${I.plus}<span>Add</span></button>
@@ -666,13 +675,13 @@ function viewGarden() {
     ${GROUPS.filter(([k]) => groups[k]?.length).map(([k, title, hint]) => `
       <section class="group ${k === 'basket' ? 'basket' : ''}"><h3>${title}</h3>${hint ? `<p class="hint">${hint}</p>` : ''}
       ${groups[k].map(itemRow).join('')}</section>`).join('')}
-    ${done.length ? `<details class="group done"><summary>Finished (${done.length})</summary><p class="hint">Finished something by accident? Tap “Bring back”.</p>${done.map(itemRow).join('')}</details>` : ''}
+    ${done.length ? `<details class="group done"><summary>Finished this week (${done.length})</summary><p class="hint">These leave the Garden a week after you finish them. Finished something by accident? Tap “Bring back”.</p>${done.map(itemRow).join('')}</details>` : ''}
     ${S.items.length ? '' : '<p class="muted center">Nothing here yet. Tap Add to plant your first seed.</p>'}
   </section>`;
 }
 
 function blankForm() {
-  return { title: '', states: [], hobby: false, inSeason: true, work: false, weekly: false, days: [], steps: [], deadline: null, status: 'active', lastDoneWeek: null, doneWeek: null };
+  return { title: '', states: [], hobby: false, inSeason: true, work: false, weekly: false, days: [], steps: [], deadline: null, status: 'active', lastDoneWeek: null, doneWeek: null, doneAt: null };
 }
 function viewEdit() {
   const f = S.form;
@@ -870,6 +879,7 @@ function saveForm(later) {
     title: f.title, states: f.states, hobby: !!f.hobby, inSeason: !!f.inSeason, work: !!f.work,
     weekly: !!f.weekly && f.states.includes('clearing'), days: f.days, steps: f.steps,
     deadline: f.deadline || null, status, lastDoneWeek: f.lastDoneWeek || null, doneWeek: status === 'done' ? (f.doneWeek || null) : null,
+    doneAt: status === 'done' ? (f.doneAt || null) : null,
   };
   if (S.editing) updateItem(S.editing, data);
   else addItem({ ...data, createdAt: Date.now() });
@@ -957,8 +967,8 @@ document.addEventListener('click', async e => {
     case 'done-now': press(getItem(S.current), S.mood); break;
     case 'complete': {
       const it = getItem(S.current);
-      updateItem(it.id, { status: 'done' });
-      press(it, S.mood, { prev: { status: 'active' } }); break;
+      updateItem(it.id, { status: 'done', doneAt: Date.now() });
+      press(it, S.mood, { prev: { status: 'active', doneAt: null } }); break;
     }
     case 'undo': {
       const itemId = S.undo?.itemId;
@@ -983,7 +993,14 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'season': { const it = getItem(el.dataset.id); updateItem(it.id, { inSeason: !it.inSeason }); render(); break; }
-    case 'bring-back': updateItem(el.dataset.id, { status: 'active', doneWeek: null }); render(); break;
+    case 'garden-tick': { // finish (or un-finish) something from the Garden; no leaf, just tidying
+      const it = getItem(el.dataset.id);
+      if (!it) break;
+      if (it.status === 'done') updateItem(it.id, { status: 'active', doneAt: null, doneWeek: null });
+      else updateItem(it.id, { status: 'done', doneAt: Date.now() });
+      render(); break;
+    }
+    case 'bring-back': updateItem(el.dataset.id, { status: 'active', doneWeek: null, doneAt: null }); render(); break;
     case 'add': S.form = blankForm(); S.editing = null; S.returnView = 'garden'; go('edit'); break;
     case 'edit': {
       const it = getItem(el.dataset.id);
@@ -1018,9 +1035,9 @@ document.addEventListener('click', async e => {
     case 'clear-tick': {
       const it = getItem(el.dataset.id);
       if (doneThisWeek(it)) { untickClearing(it); render(); break; }
-      const prev = it.weekly ? { lastDoneWeek: it.lastDoneWeek || null } : { status: 'active', doneWeek: null };
+      const prev = it.weekly ? { lastDoneWeek: it.lastDoneWeek || null } : { status: 'active', doneWeek: null, doneAt: null };
       if (it.weekly) updateItem(it.id, { lastDoneWeek: clearingWeekKey() });
-      else updateItem(it.id, { status: 'done', doneWeek: clearingWeekKey() });
+      else updateItem(it.id, { status: 'done', doneWeek: clearingWeekKey(), doneAt: Date.now() });
       press(it, 'clearing', { navigate: false, prev });
       render(); break;
     }
