@@ -129,17 +129,24 @@ function deleteItem(id) { S.items = S.items.filter(i => i.id !== id); db.deleteI
 function saveSettings(patch) { Object.assign(S.settings, patch); db.saveSettings(patch); }
 
 // Press a leaf. `prev` holds the item's old values so the press can be undone.
-function press(item, state, { navigate = true, prev = null } = {}) {
+// `keepTimer` (used by "Step done" while the timer runs) saves the minutes since the last step
+// and lets the timer keep counting, so each leaf holds only its own share of the time.
+function press(item, state, { navigate = true, prev = null, keepTimer = false } = {}) {
   const kind = leafKindFor(item, state);
   const entry = { itemId: item?.id || null, title: item?.title || 'Rested', state, kind, date: dateStr(), at: Date.now() };
+  let timerUndo = null;
   if (S.timer && item && S.timer.itemId === item.id) {
-    entry.minutes = Math.max(1, Math.round(elapsed() / 60000));
-    stopTimer();
+    entry.minutes = Math.max(1, Math.round(sinceSplit() / 60000));
+    if (keepTimer) {
+      timerUndo = { split: S.timer.split };
+      S.timer.split = Math.min(Date.now(), S.timer.start + TIMER_LIMIT);
+      saveTimer();
+    } else stopTimer();
   }
   const saved = db.addLog(entry);
   S.log.push(saved);
   S.lastPressed = saved;
-  S.undo = { logId: saved.id, itemId: item?.id || null, prev };
+  S.undo = { logId: saved.id, itemId: item?.id || null, prev, timerUndo };
   if (navigate) { S.view = 'pressed'; render(); }
   else toast(`${/^[aeiou]/.test(LEAF_NAMES[kind]) ? 'An' : 'A'} ${LEAF_NAMES[kind]} was pressed into today’s page.`, { label: 'Undo', fn: () => { undoLast(); render(); } });
 }
@@ -149,6 +156,7 @@ function undoLast() {
   S.log = S.log.filter(l => l.id !== u.logId);
   db.deleteLog(u.logId);
   if (u.itemId && u.prev) updateItem(u.itemId, u.prev);
+  if (u.timerUndo && S.timer && S.timer.itemId === u.itemId) { S.timer.split = u.timerUndo.split; saveTimer(); }
   S.undo = null;
   S.lastPressed = null;
 }
@@ -194,6 +202,8 @@ function restoreTimer() {
 function ensureTick() { if (!S.timerInt) S.timerInt = setInterval(tick, 1000); }
 const TIMER_LIMIT = 4 * 60 * 60000; // stops counting after 4 hours, in case it was forgotten
 const elapsed = () => (S.timer ? Math.min(Date.now() - S.timer.start, TIMER_LIMIT) : 0);
+// Time since the last "Step done" (or since the start), for the minutes saved with each leaf.
+const sinceSplit = () => (S.timer ? Math.max(0, Math.min(Date.now(), S.timer.start + TIMER_LIMIT) - (S.timer.split || S.timer.start)) : 0);
 function fmtUp(ms) {
   const t = Math.floor(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
   return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
@@ -858,7 +868,10 @@ document.addEventListener('click', async e => {
       const prev = { steps: JSON.parse(JSON.stringify(it.steps || [])) };
       const k = (it.steps || []).findIndex(s => !s.done);
       if (k >= 0) updateItem(it.id, { steps: it.steps.map((s, j) => (j === k ? { ...s, done: true } : s)) });
-      press(it, S.mood, { prev }); break;
+      // In the flow: with the timer running, stay here, keep counting and show the next step.
+      if (S.timer && S.timer.itemId === it.id) { press(it, S.mood, { prev, navigate: false, keepTimer: true }); render(); }
+      else press(it, S.mood, { prev });
+      break;
     }
     case 'done-now': press(getItem(S.current), S.mood); break;
     case 'complete': {
