@@ -130,22 +130,25 @@ function deleteItem(id) { S.items = S.items.filter(i => i.id !== id); db.deleteI
 function saveSettings(patch) { Object.assign(S.settings, patch); db.saveSettings(patch); }
 
 // Press a leaf. `prev` holds the item's old values so the press can be undone.
-// One leaf per sitting: with the timer running, the leaf holds the whole sitting's time and the steps done in it.
+// One leaf per sitting: the leaf holds the steps done in this sitting and, if the timer ran, its whole time.
 function press(item, state, { navigate = true, prev = null } = {}) {
   const kind = leafKindFor(item, state);
   const entry = { itemId: item?.id || null, title: item?.title || 'Rested', state, kind, date: dateStr(), at: Date.now() };
-  let timerUndo = null;
+  let timerUndo = null, sittingUndo = null;
   if (S.timer && item && S.timer.itemId === item.id) {
     entry.minutes = Math.max(1, Math.round(elapsed() / 60000));
-    const steps = (S.timer.stepsDone || []).length;
-    if (steps) entry.steps = steps;
-    timerUndo = { timer: { ...S.timer, stepsDone: [...(S.timer.stepsDone || [])] } }; // so Undo can bring the timer back
+    timerUndo = { timer: { ...S.timer } }; // so Undo can bring the timer back
     stopTimer();
+  }
+  if (item && S.sitting?.itemId === item.id) {
+    if (S.sitting.stepsDone.length) entry.steps = S.sitting.stepsDone.length;
+    sittingUndo = { ...S.sitting, stepsDone: [...S.sitting.stepsDone] };
+    endSitting();
   }
   const saved = db.addLog(entry);
   S.log.push(saved);
   S.lastPressed = saved;
-  S.undo = { logId: saved.id, itemId: item?.id || null, prev, timerUndo };
+  S.undo = { logId: saved.id, itemId: item?.id || null, prev, timerUndo, sittingUndo };
   if (navigate) { S.view = 'pressed'; render(); }
 }
 function undoLast() {
@@ -161,6 +164,7 @@ function undoLast() {
     if (elapsed() < TIMER_LIMIT) ensureTick();
     timerBack = true;
   }
+  if (u.sittingUndo && getItem(u.itemId)) { S.sitting = u.sittingUndo; saveSitting(); timerBack = true; }
   S.undo = null;
   S.lastPressed = null;
   return timerBack;
@@ -212,6 +216,25 @@ function fmtUp(ms) {
   return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
 }
 function fmtMinutes(min) { return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ''}`; }
+// ---------- the sitting: steps ticked off since you opened a task, with or without the timer ----------
+const SITTING_KEY = 'glade-sitting';
+function saveSitting() { try { S.sitting ? localStorage.setItem(SITTING_KEY, JSON.stringify(S.sitting)) : localStorage.removeItem(SITTING_KEY); } catch { /* storage blocked */ } }
+function restoreSitting() {
+  try { S.sitting = JSON.parse(localStorage.getItem(SITTING_KEY)); } catch { S.sitting = null; }
+  if (S.sitting && !getItem(S.sitting.itemId)) S.sitting = null;
+  saveSitting();
+}
+function endSitting() { S.sitting = null; saveSitting(); }
+const sittingSteps = id => (S.sitting?.itemId === id ? S.sitting.stepsDone.length : 0);
+// Opening a different task closes the last sitting. If steps were done in it, its leaf is pressed quietly.
+function enterItem(id) {
+  if (S.sitting && S.sitting.itemId !== id) {
+    const old = getItem(S.sitting.itemId);
+    if (old && S.sitting.stepsDone.length) press(old, S.sitting.mood || S.mood || 'focus', { navigate: false });
+    else endSitting();
+  }
+  S.current = id;
+}
 function startTimer() {
   S.timer = { start: Date.now(), itemId: S.current, mood: S.mood, chimed: false };
   saveTimer(); ensureTick(); render();
@@ -522,7 +545,7 @@ function viewBegin() {
   return `<section class="float-card glass center">
       <span class="eyebrow">You’re here</span><h2>${esc(item.title)}</h2>
       ${step ? `<span class="step-count">Step ${(item.steps || []).indexOf(step) + 1} of ${(item.steps || []).length}</span><div class="step big">${esc(step.text)}</div>` : ''}
-      ${S.timer && S.timer.itemId === item.id && (S.timer.stepsDone || []).length ? '<button class="link small" data-action="undo-step">Undo last step</button>' : ''}
+      ${sittingSteps(item.id) ? '<button class="link small" data-action="undo-step">Undo last step</button>' : ''}
       <div class="timer">${timerHtml(item)}</div>
       <div class="stack">
         ${step && !regular ? '<button class="btn primary" data-action="step-done">Step done</button>' : ''}
@@ -537,7 +560,7 @@ function viewPressed() {
   if (!e) { S.view = gladeHome(); return S.view === 'home' ? viewHome() : viewStream(); }
   return `<section class="float-card glass center"><div class="pressed-leaf">${leafSvg(e.kind, 96)}</div>
     <h2>${/^[aeiou]/.test(LEAF_NAMES[e.kind]) ? 'An' : 'A'} ${LEAF_NAMES[e.kind]} was pressed into today’s page</h2>
-    <p class="small">${e.steps && e.minutes ? `You did ${e.steps} step${e.steps > 1 ? 's' : ''} and spent ${fmtMinutes(e.minutes)} on this. ` : e.minutes ? `You spent ${fmtMinutes(e.minutes)} on this. ` : ''}Your glade grew a little.</p>
+    <p class="small">${e.steps && e.minutes ? `You did ${e.steps} step${e.steps > 1 ? 's' : ''} and spent ${fmtMinutes(e.minutes)} on this. ` : e.minutes ? `You spent ${fmtMinutes(e.minutes)} on this. ` : e.steps ? `You did ${e.steps} step${e.steps > 1 ? 's' : ''}. ` : ''}Your glade grew a little.</p>
     <div class="stack"><button class="btn primary" data-action="another-leaf">Back to the stream</button>
     <button class="btn glass-btn" data-action="journal-today">See today’s page</button>
     ${S.undo ? '<button class="link" data-action="undo">Undo, that was a mistake</button>' : ''}</div></section>`;
@@ -865,7 +888,7 @@ document.addEventListener('click', async e => {
     case 'signin':
       try { await realDb.signIn(); } catch (err) { showErr('login-err', err.code === 'auth/unauthorized-domain' ? 'This web address isn’t allowed yet. Add it under Firebase → Authentication → Settings → Authorized domains.' : 'Sign-in didn’t work. Please try again.'); }
       break;
-    case 'signout': stopTimer(); await db.signOut(); break;
+    case 'signout': stopTimer(); endSitting(); await db.signOut(); break;
     case 'guest': await enterGuest(); break;
     case 'leave-guest': leaveGuest(); break;
     case 'sound': await toggleSound(); break;
@@ -893,7 +916,7 @@ document.addEventListener('click', async e => {
     }
     case 'restart-stream': S.drifted = new Set(); S.leafId = pickLeaf(S.mood)?.id || null; forceEnter = true; render(); break;
     case 'another-leaf': S.leafId = pickLeaf(S.mood)?.id || null; forceEnter = true; go('stream'); break;
-    case 'begin': S.current = S.leafId; go('begin'); break;
+    case 'begin': enterItem(S.leafId); go('begin'); break;
     case 'start-item': { // choose a task yourself from the Garden
       const it = getItem(el.dataset.id);
       if (!it) break;
@@ -901,7 +924,7 @@ document.addEventListener('click', async e => {
         S.current = S.timer.itemId; S.mood = S.mood || S.timer.mood || 'focus'; go('begin'); // one sitting at a time
         break;
       }
-      S.current = it.id; S.leafId = it.id;
+      enterItem(it.id); S.leafId = it.id;
       S.mood = (S.mood && (it.states || []).includes(S.mood)) ? S.mood : (it.states || [])[0] || S.mood || 'focus';
       go('begin'); break;
     }
@@ -913,21 +936,22 @@ document.addEventListener('click', async e => {
       const prev = { steps: JSON.parse(JSON.stringify(it.steps || [])) };
       const k = (it.steps || []).findIndex(s => !s.done);
       if (k >= 0) updateItem(it.id, { steps: it.steps.map((s, j) => (j === k ? { ...s, done: true } : s)) });
-      // In the flow: with the timer running there is no leaf yet, just a quiet check and the next step.
+      // No leaf yet, timer or not: just a quiet check and the next step.
       // The leaf for the whole sitting is pressed on "Done for now", "finished" or "Back to the stream".
-      if (S.timer && S.timer.itemId === it.id) {
+      {
         if (k < 0) break;
-        (S.timer.stepsDone ||= []).push(k); saveTimer();
+        if (S.sitting?.itemId !== it.id) S.sitting = { itemId: it.id, mood: S.mood, stepsDone: [] };
+        S.sitting.stepsDone.push(k); saveSitting();
         const box = $app.querySelector('.step.big');
         if (box && !box.classList.contains('ticked')) { box.classList.add('ticked'); box.insertAdjacentHTML('afterbegin', `<span class="step-check">${I.check}</span>`); }
         const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         setTimeout(() => { if (S.view === 'begin' && S.current === it.id) stepArrives(); }, reduce ? 0 : 600);
-      } else press(it, S.mood, { prev });
+      }
       break;
     }
     case 'undo-step': { // un-tick the most recent step of this sitting
-      const it = getItem(S.current), k = S.timer?.stepsDone?.pop();
-      if (it && k != null) { updateItem(it.id, { steps: (it.steps || []).map((s, j) => (j === k ? { ...s, done: false } : s)) }); saveTimer(); stepArrives(); }
+      const it = getItem(S.current), k = S.sitting?.itemId === it?.id ? S.sitting.stepsDone.pop() : null;
+      if (it && k != null) { updateItem(it.id, { steps: (it.steps || []).map((s, j) => (j === k ? { ...s, done: false } : s)) }); saveSitting(); stepArrives(); }
       break;
     }
     case 'done-now': press(getItem(S.current), S.mood); break;
@@ -939,7 +963,7 @@ document.addEventListener('click', async e => {
     case 'undo': {
       const itemId = S.undo?.itemId;
       if (undoLast()) {
-        S.current = itemId; S.mood = S.mood || S.timer.mood || 'focus';
+        S.current = itemId; S.mood = S.mood || S.timer?.mood || S.sitting?.mood || 'focus';
         go('begin'); break;
       }
       if (itemId && getItem(itemId)?.status === 'active') { S.leafId = itemId; }
@@ -947,10 +971,9 @@ document.addEventListener('click', async e => {
     }
     case 'just-rest': press(null, 'rest'); break;
     case 'stream-back':
-      if (S.timer && S.timer.itemId === S.current) {
-        if ((S.timer.stepsDone || []).length) { press(getItem(S.current), S.mood); break; } // the steps you did still count
-        stopTimer();
-      }
+      if (sittingSteps(S.current)) { press(getItem(S.current), S.mood); break; } // the steps you did still count
+      if (S.timer && S.timer.itemId === S.current) stopTimer();
+      endSitting();
       go('stream'); break;
     case 'journal-today': S.journalDate = dateStr(); go('journal'); break;
     case 'jday': {
@@ -1080,17 +1103,17 @@ function starterItems() {
 
 // ---------- guest mode ----------
 async function enterGuest() {
-  stopTimer();
+  stopTimer(); endSitting();
   db = await import('./guest-db.js');
   const data = await db.loadAll();
   Object.assign(S, { guest: true, user: null, items: data.items, log: data.log, settings: data.settings, mood: null, leafId: null, journalDate: null, form: null, editing: null });
-  restoreTimer();
+  restoreTimer(); restoreSitting();
   applyMusicSettings();
   go('home');
   startSoundIfWanted();
 }
 function leaveGuest() {
-  stopTimer();
+  stopTimer(); endSitting();
   pauseMusic();
   Object.assign(S, { guest: false, items: [], log: [], settings: {}, journalDate: null, form: null, editing: null, mood: null, leafId: null });
   db = realDb;
@@ -1110,7 +1133,7 @@ async function loadUser(user) {
       }
       saveSettings({ seeded: true });
     }
-    restoreTimer();
+    restoreTimer(); restoreSitting();
     applyMusicSettings();
     S.view = 'home';
     render();
