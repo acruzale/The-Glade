@@ -161,9 +161,9 @@ a { color: inherit; }
 .clearing-chip { display: inline-flex; align-items: center; gap: 12px; margin-top: 26px; padding: 12px 20px; border-radius: 20px; text-align: left; color: var(--ink); }
 
 /* ---------- the floating card over the open glade ---------- */
-.float-card { position: fixed; right: max(5vw, 24px); top: calc(13vh + env(safe-area-inset-top)); width: min(440px, calc(100vw - 48px)); max-height: calc(100vh - 13vh - 40px); overflow: auto; border-radius: 28px; padding: 26px 28px; animation: rise .4s var(--ease-out) both; }
+.float-card { position: fixed; right: max(5vw, 24px); top: calc(13vh + env(safe-area-inset-top)); width: min(440px, calc(100vw - 48px)); max-height: calc(100vh - 13vh - 40px); overflow: auto; border-radius: 28px; padding: 26px 28px; animation: rise .6s ease both; }
 body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
-.float-card.away { animation: fadeOut .28s ease forwards; }
+.float-card.away { animation: fadeOut .45s ease forwards; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes fadeOut { to { opacity: 0; transform: translateY(8px); } }
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -189,7 +189,7 @@ body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
 .timer-done { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #fff; }
 
 /* ---------- panels (journal, garden, settings…) ---------- */
-.panel { max-width: 760px; margin: 0 auto; max-height: calc(100vh - 140px - env(safe-area-inset-top)); overflow: auto; border-radius: 28px; padding: 26px 30px 30px; animation: rise .4s var(--ease-out) both; }
+.panel { max-width: 760px; margin: 0 auto; max-height: calc(100vh - 140px - env(safe-area-inset-top)); overflow: auto; border-radius: 28px; padding: 26px 30px 30px; animation: rise .5s ease both; }
 .panel-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
 .panel-title { flex: 1; }
 .panel-title h1 { margin-bottom: .1em; }
@@ -336,7 +336,7 @@ select option { color: #17241c; background: #fff; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   /* keep soft fades so screens don't snap; only the movement goes */
-  #app:not([data-same="1"]) .float-card:not(.away), #app:not([data-same="1"]) .panel { animation: fadeIn .3s ease both !important; }
+  .float-card:not(.away), .panel { animation: fadeIn .3s ease both !important; }
   .toast { transition: opacity .3s ease !important; }
   .animal { opacity: 1; }
   .fx-leaf, .fx-glint, .fx-ring, .fx-snow { display: none; }
@@ -344,8 +344,9 @@ select option { color: #17241c; background: #fff; }
 }
 
 /* ---------- polish: arriving, pressing, hovering ---------- */
-/* a tap on the same page updates it in place, without replaying the fade-in */
-#app[data-same="1"] .float-card:not(.away), #app[data-same="1"] .panel { animation: none; }
+/* a tap on the same page keeps your scroll position and settles in with a soft fade (no movement) */
+#app[data-same="1"] .float-card:not(.away), #app[data-same="1"] .panel { animation: soften .5s ease both; }
+@keyframes soften { from { opacity: .35; } }
 @keyframes fadeIn { from { opacity: 0; } }
 
 /* every tappable thing answers a press the same quiet way */

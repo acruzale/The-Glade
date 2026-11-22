@@ -764,7 +764,7 @@ function softSwap(el) {
   if (!el?.animate) return;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   el.animate(reduce ? [{ opacity: 0.4 }, { opacity: 1 }] : [{ opacity: 0.35, filter: 'blur(2px)' }, { opacity: 1, filter: 'blur(0)' }],
-    { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+    { duration: 500, easing: 'ease' });
 }
 
 function hydratePhotos() {
