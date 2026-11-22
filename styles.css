@@ -171,7 +171,18 @@ body[data-card=left] .float-card { right: auto; left: max(5vw, 24px); }
 .tag { display: inline-block; font-size: .78rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--moss-soft); color: #fff; margin-bottom: 8px; }
 .step { background: var(--glass-btn); border: 1px solid var(--glass-btn-line); border-radius: 16px; padding: 12px 16px; margin: 6px 0 14px; font-size: 1.05rem; }
 .step-label { display: block; font-size: .78rem; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
-.step.big { font-size: 1.15rem; }
+.step.big { font-size: 1.15rem; transition: color .3s ease, opacity .3s ease; }
+.step-count { display: block; margin-top: 8px; font-size: .78rem; font-weight: 600; letter-spacing: .04em; color: var(--muted); }
+/* Step done: a quiet check on the finished step, then the next one arrives with a soft warm glow */
+.step.big.ticked { opacity: .6; }
+.step-check { display: inline-flex; vertical-align: -3px; margin-right: 8px; animation: checkIn .35s var(--ease-out) both; }
+@keyframes checkIn { from { opacity: 0; transform: scale(.7); } }
+.step.big.arrive { animation: stepArrive 1.8s ease both; }
+@keyframes stepArrive {
+  0% { opacity: 0; transform: translateY(4px); }
+  20% { opacity: 1; transform: none; background: rgba(255, 244, 205, .3); border-color: rgba(255, 244, 205, .95); }
+  100% { opacity: 1; }
+}
 .gentle-date { color: var(--sand-ink); background: var(--sand); display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: .86rem; }
 .pressed-leaf { display: inline-block; animation: press 1.4s cubic-bezier(.2, .8, .2, 1) both; margin-bottom: 6px; }
 @keyframes press { from { transform: translateY(-40px) rotate(-25deg) scale(1.2); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -336,7 +347,8 @@ select option { color: #17241c; background: #fff; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   /* keep soft fades so screens don't snap; only the movement goes */
-  .float-card:not(.away), .panel { animation: fadeIn .3s ease both !important; }
+  #app:not([data-same="quiet"]) .float-card:not(.away), #app:not([data-same="quiet"]) .panel { animation: fadeIn .3s ease both !important; }
+  .step.big.arrive { animation: fadeIn .5s ease both !important; }
   .toast { transition: opacity .3s ease !important; }
   .animal { opacity: 1; }
   .fx-leaf, .fx-glint, .fx-ring, .fx-snow { display: none; }
@@ -347,6 +359,7 @@ select option { color: #17241c; background: #fff; }
 /* a tap on the same page keeps your scroll position and settles in with a soft fade (no movement) */
 #app[data-same="1"] .float-card:not(.away), #app[data-same="1"] .panel { animation: soften .5s ease both; }
 @keyframes soften { from { opacity: .35; } }
+#app[data-same="quiet"] .float-card:not(.away), #app[data-same="quiet"] .panel { animation: none; }
 @keyframes fadeIn { from { opacity: 0; } }
 
 /* every tappable thing answers a press the same quiet way */

@@ -130,19 +130,17 @@ function deleteItem(id) { S.items = S.items.filter(i => i.id !== id); db.deleteI
 function saveSettings(patch) { Object.assign(S.settings, patch); db.saveSettings(patch); }
 
 // Press a leaf. `prev` holds the item's old values so the press can be undone.
-// `keepTimer` (used by "Step done" while the timer runs) saves the minutes since the last step
-// and lets the timer keep counting, so each leaf holds only its own share of the time.
-function press(item, state, { navigate = true, prev = null, keepTimer = false } = {}) {
+// One leaf per sitting: with the timer running, the leaf holds the whole sitting's time and the steps done in it.
+function press(item, state, { navigate = true, prev = null } = {}) {
   const kind = leafKindFor(item, state);
   const entry = { itemId: item?.id || null, title: item?.title || 'Rested', state, kind, date: dateStr(), at: Date.now() };
   let timerUndo = null;
   if (S.timer && item && S.timer.itemId === item.id) {
-    entry.minutes = Math.max(1, Math.round(sinceSplit() / 60000));
-    if (keepTimer) {
-      timerUndo = { split: S.timer.split };
-      S.timer.split = Math.min(Date.now(), S.timer.start + TIMER_LIMIT);
-      saveTimer();
-    } else { timerUndo = { timer: { ...S.timer } }; stopTimer(); } // kept so Undo can bring the timer back
+    entry.minutes = Math.max(1, Math.round(elapsed() / 60000));
+    const steps = (S.timer.stepsDone || []).length;
+    if (steps) entry.steps = steps;
+    timerUndo = { timer: { ...S.timer, stepsDone: [...(S.timer.stepsDone || [])] } }; // so Undo can bring the timer back
+    stopTimer();
   }
   const saved = db.addLog(entry);
   S.log.push(saved);
@@ -163,7 +161,7 @@ function undoLast() {
     S.timer = u.timerUndo.timer; saveTimer();
     if (elapsed() < TIMER_LIMIT) ensureTick();
     timerBack = true;
-  } else if (u.timerUndo && S.timer && S.timer.itemId === u.itemId) { S.timer.split = u.timerUndo.split; saveTimer(); }
+  }
   S.undo = null;
   S.lastPressed = null;
   return timerBack;
@@ -210,8 +208,6 @@ function restoreTimer() {
 function ensureTick() { if (!S.timerInt) S.timerInt = setInterval(tick, 1000); }
 const TIMER_LIMIT = 4 * 60 * 60000; // stops counting after 4 hours, in case it was forgotten
 const elapsed = () => (S.timer ? Math.min(Date.now() - S.timer.start, TIMER_LIMIT) : 0);
-// Time since the last "Step done" (or since the start), for the minutes saved with each leaf.
-const sinceSplit = () => (S.timer ? Math.max(0, Math.min(Date.now(), S.timer.start + TIMER_LIMIT) - (S.timer.split || S.timer.start)) : 0);
 function fmtUp(ms) {
   const t = Math.floor(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
   return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
@@ -527,7 +523,8 @@ function viewBegin() {
   const canComplete = !regular && !item.hobby && !(item.states || []).every(s => s === 'rest');
   return `<section class="float-card glass center">
       <span class="eyebrow">You’re here</span><h2>${esc(item.title)}</h2>
-      ${step ? `<div class="step big">${esc(step.text)}</div>` : ''}
+      ${step ? `<span class="step-count">Step ${(item.steps || []).indexOf(step) + 1} of ${(item.steps || []).length}</span><div class="step big">${esc(step.text)}</div>` : ''}
+      ${S.timer && S.timer.itemId === item.id && (S.timer.stepsDone || []).length ? '<button class="link small" data-action="undo-step">Undo last step</button>' : ''}
       <div class="timer">${timerHtml(item)}</div>
       <div class="stack">
         ${step && !regular ? '<button class="btn primary" data-action="step-done">Step done</button>' : ''}
@@ -542,7 +539,7 @@ function viewPressed() {
   if (!e) { S.view = gladeHome(); return S.view === 'home' ? viewHome() : viewStream(); }
   return `<section class="float-card glass center"><div class="pressed-leaf">${leafSvg(e.kind, 96)}</div>
     <h2>${/^[aeiou]/.test(LEAF_NAMES[e.kind]) ? 'An' : 'A'} ${LEAF_NAMES[e.kind]} was pressed into today’s page</h2>
-    <p class="small">${e.minutes ? `You spent ${fmtMinutes(e.minutes)} on this. ` : ''}Your glade grew a little.</p>
+    <p class="small">${e.steps && e.minutes ? `You did ${e.steps} step${e.steps > 1 ? 's' : ''} and spent ${fmtMinutes(e.minutes)} on this. ` : e.minutes ? `You spent ${fmtMinutes(e.minutes)} on this. ` : ''}Your glade grew a little.</p>
     <div class="stack"><button class="btn primary" data-action="another-leaf">Back to the stream</button>
     <button class="btn glass-btn" data-action="journal-today">See today’s page</button>
     ${S.undo ? '<button class="link" data-action="undo">Undo, that was a mistake</button>' : ''}</div></section>`;
@@ -576,7 +573,7 @@ function viewJournal() {
       <a class="small link-out" data-wiki-link href="https://en.wikipedia.org/wiki/${encodeURIComponent(n.wiki.replace(/ /g, '_'))}" target="_blank" rel="noopener">Read more on Wikipedia</a></div>
     </article>
     <section class="pressed-list"><h3>Pressed on this day</h3>
-      ${entries.length ? `<ul>${entries.map(e => `<li>${leafSvg(e.kind, 28)}<span>${esc(e.title)}</span><span class="small muted">${e.minutes ? `${fmtMinutes(e.minutes)} · ` : ''}${e.kind === 'oak' ? 'Regular day' : (STATE_INFO[e.state]?.label || '')}</span></li>`).join('')}</ul>`
+      ${entries.length ? `<ul>${entries.map(e => `<li>${leafSvg(e.kind, 28)}<span>${esc(e.title)}</span><span class="small muted">${e.steps ? `${e.steps} step${e.steps > 1 ? 's' : ''} · ` : ''}${e.minutes ? `${fmtMinutes(e.minutes)} · ` : ''}${e.kind === 'oak' ? 'Regular day' : (STATE_INFO[e.state]?.label || '')}</span></li>`).join('')}</ul>`
         : '<p class="muted">A quiet day. Quiet days belong here too.</p>'}
     </section></section>`;
 }
@@ -759,19 +756,17 @@ function render() {
   // and keeps your scroll position, so nothing flickers or jumps back to the top.
   const same = S.view === lastView && !forceEnter;
   const scroll = same ? [...$app.querySelectorAll('.panel, .float-card')].map(el => el.scrollTop) : [];
-  $app.dataset.same = same ? '1' : '';
+  $app.dataset.same = same ? (quietRender ? 'quiet' : '1') : '';
   $app.innerHTML = shell(html);
   if (same) $app.querySelectorAll('.panel, .float-card').forEach((el, k) => { if (scroll[k]) el.scrollTop = scroll[k]; });
-  lastView = S.view; forceEnter = false;
+  lastView = S.view; forceEnter = false; quietRender = false;
   if (S.view === 'journal') hydratePhotos();
 }
-let lastView = null, forceEnter = false;
-// A soft crossfade for content that changed in place (e.g. the next step after "Step done").
-function softSwap(el) {
-  if (!el?.animate) return;
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  el.animate(reduce ? [{ opacity: 0.4 }, { opacity: 1 }] : [{ opacity: 0.35, filter: 'blur(2px)' }, { opacity: 1, filter: 'blur(0)' }],
-    { duration: 500, easing: 'ease' });
+let lastView = null, forceEnter = false, quietRender = false; // quietRender: only the step moves, the card stays still
+// After the card updates quietly, the step box glows softly so you can see a new step arrived.
+function stepArrives() {
+  quietRender = true; render();
+  $app.querySelector('.step.big')?.classList.add('arrive');
 }
 
 function hydratePhotos() {
@@ -902,12 +897,25 @@ document.addEventListener('click', async e => {
     case 'start-timer': startTimer(); break;
     case 'step-done': {
       const it = getItem(S.current);
+      if ($app.querySelector('.step.big.ticked')) break; // already ticking this one, a double tap does nothing
       const prev = { steps: JSON.parse(JSON.stringify(it.steps || [])) };
       const k = (it.steps || []).findIndex(s => !s.done);
       if (k >= 0) updateItem(it.id, { steps: it.steps.map((s, j) => (j === k ? { ...s, done: true } : s)) });
-      // In the flow: with the timer running, stay here, keep counting and show the next step.
-      if (S.timer && S.timer.itemId === it.id) { press(it, S.mood, { prev, navigate: false, keepTimer: true }); render(); softSwap($app.querySelector('.step.big')); }
-      else press(it, S.mood, { prev });
+      // In the flow: with the timer running there is no leaf yet, just a quiet check and the next step.
+      // The leaf for the whole sitting is pressed on "Done for now", "finished" or "Back to the stream".
+      if (S.timer && S.timer.itemId === it.id) {
+        if (k < 0) break;
+        (S.timer.stepsDone ||= []).push(k); saveTimer();
+        const box = $app.querySelector('.step.big');
+        if (box && !box.classList.contains('ticked')) { box.classList.add('ticked'); box.insertAdjacentHTML('afterbegin', `<span class="step-check">${I.check}</span>`); }
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        setTimeout(() => { if (S.view === 'begin' && S.current === it.id) stepArrives(); }, reduce ? 0 : 600);
+      } else press(it, S.mood, { prev });
+      break;
+    }
+    case 'undo-step': { // un-tick the most recent step of this sitting
+      const it = getItem(S.current), k = S.timer?.stepsDone?.pop();
+      if (it && k != null) { updateItem(it.id, { steps: (it.steps || []).map((s, j) => (j === k ? { ...s, done: false } : s)) }); saveTimer(); stepArrives(); }
       break;
     }
     case 'done-now': press(getItem(S.current), S.mood); break;
@@ -919,16 +927,19 @@ document.addEventListener('click', async e => {
     case 'undo': {
       const itemId = S.undo?.itemId;
       if (undoLast()) {
-        toast('Undone. Your timer is back.');
         S.current = itemId; S.mood = S.mood || S.timer.mood || 'focus';
         go('begin'); break;
       }
-      toast('Undone. Nothing was pressed.');
       if (itemId && getItem(itemId)?.status === 'active') { S.leafId = itemId; }
       go(S.mood ? 'stream' : 'home'); break;
     }
     case 'just-rest': press(null, 'rest'); break;
-    case 'stream-back': if (S.timer && S.timer.itemId === S.current) stopTimer(); go('stream'); break;
+    case 'stream-back':
+      if (S.timer && S.timer.itemId === S.current) {
+        if ((S.timer.stepsDone || []).length) { press(getItem(S.current), S.mood); break; } // the steps you did still count
+        stopTimer();
+      }
+      go('stream'); break;
     case 'journal-today': S.journalDate = dateStr(); go('journal'); break;
     case 'jday': {
       const d = parseDate(S.journalDate || dateStr());
